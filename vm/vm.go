@@ -16,6 +16,11 @@ import (
 var MemoryBudget int = 1e6
 var errorType = reflect.TypeOf((*error)(nil)).Elem()
 
+// just for expr not save common result
+type notSave struct{}
+
+var _notSave = &notSave{}
+
 type Function = func(params ...interface{}) (interface{}, error)
 
 func Run(program *Program, env interface{}) (interface{}, error) {
@@ -48,8 +53,8 @@ type Scope struct {
 func Debug() *VM {
 	vm := &VM{
 		debug: true,
-		step:  make(chan struct{}, 0),
-		curr:  make(chan int, 0),
+		step:  make(chan struct{}),
+		curr:  make(chan int),
 	}
 	return vm
 }
@@ -67,17 +72,18 @@ func (vm *VM) Run(program *Program, env interface{}) (_ interface{}, err error) 
 			err = f.Bind(program.Source)
 		}
 	}()
-
 	if vm.stack == nil {
-		vm.stack = make([]interface{}, 0, 2)
+		vm.stack = make([]interface{}, 0, 64)
 	} else {
 		vm.stack = vm.stack[0:0]
 	}
-
 	if vm.scopes != nil {
 		vm.scopes = vm.scopes[0:0]
 	}
-
+	commonCache := make([]interface{}, len(program.CommonExpr))
+	for i := 0; i < len(commonCache); i++ {
+		commonCache[i] = _notSave
+	}
 	vm.memoryBudget = MemoryBudget
 	vm.memory = 0
 	vm.ip = 0
@@ -90,8 +96,10 @@ func (vm *VM) Run(program *Program, env interface{}) (_ interface{}, err error) 
 		op := program.Bytecode[vm.ip]
 		arg := program.Arguments[vm.ip]
 		vm.ip += 1
-
 		switch op {
+
+		case OpInvalid:
+			panic("invalid opcode")
 
 		case OpPush:
 			vm.push(program.Constants[arg])
@@ -123,6 +131,9 @@ func (vm *VM) Run(program *Program, env interface{}) (_ interface{}, err error) 
 			a := vm.pop()
 			vm.push(runtime.FetchField(a, program.Constants[arg].(*runtime.Field)))
 
+		case OpLoadEnv:
+			vm.push(env)
+
 		case OpMethod:
 			a := vm.pop()
 			vm.push(runtime.FetchMethod(a, program.Constants[arg].(*runtime.Method)))
@@ -137,12 +148,12 @@ func (vm *VM) Run(program *Program, env interface{}) (_ interface{}, err error) 
 			vm.push(nil)
 
 		case OpNegate:
-			v := runtime.Negate(vm.pop())
-			vm.push(v)
+			a := vm.pop()
+			vm.push(runtime.Negate(a))
 
 		case OpNot:
-			v := vm.pop().(bool)
-			vm.push(!v)
+			a := vm.pop().(bool)
+			vm.push(!a)
 
 		case OpEqual:
 			b := vm.pop()
@@ -179,6 +190,11 @@ func (vm *VM) Run(program *Program, env interface{}) (_ interface{}, err error) 
 
 		case OpJumpIfNotNil:
 			if !runtime.IsNil(vm.current()) {
+				vm.ip += arg
+			}
+
+		case OpJumpIfSaveCommon:
+			if _, ok := vm.current().(*notSave); !ok {
 				vm.ip += arg
 			}
 
@@ -438,6 +454,12 @@ func (vm *VM) Run(program *Program, env interface{}) (_ interface{}, err error) 
 		case OpPointer:
 			scope := vm.Scope()
 			vm.push(scope.Array.Index(scope.It).Interface())
+
+		case OpSaveCommon:
+			commonCache[arg] = vm.current()
+
+		case OpLoadCommon:
+			vm.push(commonCache[arg])
 
 		case OpBegin:
 			a := vm.pop()

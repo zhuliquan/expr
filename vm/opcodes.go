@@ -3,7 +3,8 @@ package vm
 type Opcode byte
 
 const (
-	OpPush Opcode = iota
+	OpInvalid Opcode = iota
+	OpPush
 	OpPushInt
 	OpPop
 	OpLoadConst
@@ -11,6 +12,7 @@ const (
 	OpLoadFast
 	OpLoadMethod
 	OpLoadFunc
+	OpLoadEnv
 	OpFetch
 	OpFetchField
 	OpMethod
@@ -27,6 +29,7 @@ const (
 	OpJumpIfFalse
 	OpJumpIfNil
 	OpJumpIfNotNil
+	OpJumpIfSaveCommon // if common value save skip common calculate
 	OpJumpIfEnd
 	OpJumpBackward
 	OpIn
@@ -66,6 +69,8 @@ const (
 	OpGetCount
 	OpGetLen
 	OpPointer
+	OpSaveCommon // save common sub-expr value
+	OpLoadCommon // load common sub-expr value
 	OpBegin
 	OpEnd // This opcode must be at the end of this list.
 )
