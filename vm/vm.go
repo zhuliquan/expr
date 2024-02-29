@@ -80,9 +80,12 @@ func (vm *VM) Run(program *Program, env interface{}) (_ interface{}, err error) 
 	if vm.scopes != nil {
 		vm.scopes = vm.scopes[0:0]
 	}
-	commonCache := make([]interface{}, len(program.CommonExpr))
-	for i := 0; i < len(commonCache); i++ {
-		commonCache[i] = _notSave
+	var commonCache []interface{}
+	if len(program.CommonExpr) > 0 {
+		commonCache := make([]interface{}, len(program.CommonExpr))
+		for i := 0; i < len(commonCache); i++ {
+			commonCache[i] = _notSave
+		}
 	}
 	vm.memoryBudget = MemoryBudget
 	vm.memory = 0
