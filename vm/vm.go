@@ -82,7 +82,7 @@ func (vm *VM) Run(program *Program, env interface{}) (_ interface{}, err error) 
 	}
 	var commonCache []interface{}
 	if len(program.CommonExpr) > 0 {
-		commonCache := make([]interface{}, len(program.CommonExpr))
+		commonCache = make([]interface{}, len(program.CommonExpr))
 		for i := 0; i < len(commonCache); i++ {
 			commonCache[i] = _notSave
 		}
