@@ -144,7 +144,7 @@ func (c *compiler) analyzeCommonBinaryNode(n *ast.BinaryNode) {
 	op := n.Operator
 	switch op {
 	case "==", "!=", "and", "or", "+", "*", "||", "&&", ">=", "<=": // right / left can be swap
-		if op == ">=" || op == "<=" || rs <= ls {
+		if op == ">=" || op == ">" || rs <= ls {
 			ls, rs = rs, ls
 			lw, rw = rw, lw
 		}
@@ -152,10 +152,10 @@ func (c *compiler) analyzeCommonBinaryNode(n *ast.BinaryNode) {
 			op = "and"
 		} else if op == "||" {
 			op = "or"
-		} else if op == ">=" {
+		} else if op == ">=" { // a >= b is equal to b <= a
+			op = "<="
+		} else if op == ">" { // a > b is equal to b < a
 			op = "<"
-		} else if op == "<=" {
-			op = ">"
 		}
 	case "**", "^":
 		op = "**"
