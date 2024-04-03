@@ -114,8 +114,8 @@ func TestAnalyzeCommonExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `1 >= 2 and 2 < 1`,
-			expr:  `(2 < 1) and (2 < 1)`,
+			input: `1 >= 2 and 2 <= 1`,
+			expr:  `(2 <= 1) and (2 <= 1)`,
 			program: &vm.Program{
 				Bytecode: []vm.Opcode{
 					vm.OpPush,
@@ -129,20 +129,20 @@ func TestAnalyzeCommonExpr(t *testing.T) {
 					vm.OpPop,
 					vm.OpPush,
 					vm.OpPush,
-					vm.OpLess,
+					vm.OpLessOrEqual,
 					vm.OpSaveCommon,
 				},
 				Arguments: []int{0, 1, 0, 0, 8, 0, 0, 5, 0, 1, 0, 0, 0},
 			},
 		},
 		{
-			input: `1 <= 2 and 2 > 1`,
-			expr:  `(2 > 1) and (2 > 1)`,
+			input: `1 < 2 and 2 > 1`,
+			expr:  `(1 < 2) and (1 < 2)`,
 			program: &vm.Program{
 				Bytecode: []vm.Opcode{
 					vm.OpPush,
 					vm.OpPush,
-					vm.OpLessOrEqual,
+					vm.OpLess,
 					vm.OpSaveCommon,
 					vm.OpJumpIfFalse,
 					vm.OpPop,
@@ -313,7 +313,7 @@ func TestAnalyzeCommonExpr(t *testing.T) {
 		},
 		{
 			input: `any([1+1, 1+1], { # > 1 })`,
-			expr:  `any([1 + 1,1 + 1],# > 1)`,
+			expr:  `any([1 + 1,1 + 1],1 < #)`,
 			program: &vm.Program{
 				Constants: []interface{}{1.7, 4},
 				Bytecode: []vm.Opcode{
