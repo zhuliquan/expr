@@ -36,6 +36,18 @@ func Compile(tree *parser.Tree, config *conf.Config) (program *Program, err erro
 		debugInfo:      make(map[string]string),
 	}
 
+	if config != nil {
+		if config.AllowReuseCommon {
+			c.commonExprInc = 0
+			c.commonExpr = make(map[int]string)
+			c.exprRecords = make(map[string]*exprRecord)
+			ast.Walk(&tree.Node, c)
+			defer func() {
+				program.CommonExpr = c.commonExpr
+			}()
+		}
+	}
+
 	c.compile(tree.Node)
 
 	if c.config != nil {
@@ -87,6 +99,16 @@ type compiler struct {
 	spans          []*Span
 	chains         [][]int
 	arguments      []int
+
+	commonExpr    map[int]string         // exprUniqId => expr string
+	exprRecords   map[string]*exprRecord // record sub expr cache count, hash(expr string) => exprRecord
+	commonExprInc int                    // common expr increment number id, increment exprUniqId
+}
+
+type exprRecord struct {
+	id  int           // sub-expr  uniq id
+	loc file.Location // first location of sub-expr
+	cnt int           // how many times of sub-expr repeated
 }
 
 type scope struct {
@@ -427,6 +449,23 @@ func (c *compiler) UnaryNode(node *ast.UnaryNode) {
 }
 
 func (c *compiler) BinaryNode(node *ast.BinaryNode) {
+	// if first occur, the result must not be computed before
+	// otherwise, the result need to check save before reuse result of common
+	if needReuseCommon, isFirstOccur, exprUniqId := c.needReuseCommon(node); needReuseCommon {
+		var cEnd int
+		if !isFirstOccur {
+			c.emit(OpLoadCommon, exprUniqId)
+			cEnd = c.emit(OpJumpIfSaveCommon, placeholder)
+			c.emit(OpPop)
+		}
+		defer func() {
+			c.emit(OpSaveCommon, exprUniqId)
+			if !isFirstOccur {
+				c.patchJump(cEnd)
+			}
+		}()
+	}
+
 	switch node.Operator {
 	case "==":
 		c.equalBinaryNode(node)
@@ -728,6 +767,22 @@ func (c *compiler) SliceNode(node *ast.SliceNode) {
 }
 
 func (c *compiler) CallNode(node *ast.CallNode) {
+	// if first occur, the result must not be computed before
+	// otherwise, the result need to check save before reuse result of common
+	if needReuseCommon, isFirstOccur, exprUniqId := c.needReuseCommon(node); needReuseCommon {
+		var cEnd int
+		if !isFirstOccur {
+			c.emit(OpLoadCommon, exprUniqId)
+			cEnd = c.emit(OpJumpIfSaveCommon, placeholder)
+			c.emit(OpPop)
+		}
+		defer func() {
+			c.emit(OpSaveCommon, exprUniqId)
+			if !isFirstOccur {
+				c.patchJump(cEnd)
+			}
+		}()
+	}
 	fn := node.Callee.Type()
 	if fn.Kind() == reflect.Func {
 		fnInOffset := 0
@@ -788,6 +843,22 @@ func (c *compiler) CallNode(node *ast.CallNode) {
 }
 
 func (c *compiler) BuiltinNode(node *ast.BuiltinNode) {
+	// if first occur, the result must not be computed before
+	// otherwise, the result need to check save before reuse result of common
+	if needReuseCommon, isFirstOccur, exprUniqId := c.needReuseCommon(node); needReuseCommon {
+		var cEnd int
+		if !isFirstOccur {
+			c.emit(OpLoadCommon, exprUniqId)
+			cEnd = c.emit(OpJumpIfSaveCommon, placeholder)
+			c.emit(OpPop)
+		}
+		defer func() {
+			c.emit(OpSaveCommon, exprUniqId)
+			if !isFirstOccur {
+				c.patchJump(cEnd)
+			}
+		}()
+	}
 	switch node.Name {
 	case "all":
 		c.compile(node.Arguments[0])

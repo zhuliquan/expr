@@ -25,6 +25,8 @@ type Config struct {
 	Functions FunctionsTable
 	Builtins  FunctionsTable
 	Disabled  map[string]bool // disabled builtins
+	
+	AllowReuseCommon bool // allow cache common sub-expr computed result, aimed to reuse already computed result
 }
 
 // CreateNew creates new config with default values.

@@ -785,6 +785,15 @@ func TestParse_error(t *testing.T) {
 	}
 }
 
+func TestParseRawString_error(t *testing.T) {
+	_, err := parser.Parse("`foo")
+	if err == nil {
+		t.Errorf("expect to get error")
+	} else {
+		t.Logf("got err: %+v", err)
+	}
+}
+
 func TestParse_optional_chaining(t *testing.T) {
 	parseTests := []struct {
 		input    string

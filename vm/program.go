@@ -28,6 +28,8 @@ type Program struct {
 	functions []Function
 	debugInfo map[string]string
 	span      *Span
+	
+	CommonExpr map[int]string
 }
 
 // NewProgram returns a new Program. It's used by the compiler.
@@ -104,6 +106,9 @@ func (program *Program) DisassembleWriter(w io.Writer) {
 		}
 		argumentWithInfo := func(label string, prefix string) {
 			_, _ = fmt.Fprintf(w, "%v\t%v\t<%v>\t%v\n", pp, label, arg, program.debugInfo[fmt.Sprintf("%s_%d", prefix, arg)])
+		}
+		commonExpr := func(label string) {
+			_, _ = fmt.Fprintf(w, "%v\t%v\t<%v>\t(%s)\n", pp, label, arg, program.CommonExpr[arg])
 		}
 		constant := func(label string) {
 			var c any
@@ -211,6 +216,9 @@ func (program *Program) DisassembleWriter(w io.Writer) {
 
 		case OpJumpIfNotNil:
 			jump("OpJumpIfNotNil")
+
+		case OpJumpIfSaveCommon:
+			jump("OpJumpIfSaveCommon")
 
 		case OpJumpIfEnd:
 			jump("OpJumpIfEnd")
@@ -368,6 +376,12 @@ func (program *Program) DisassembleWriter(w io.Writer) {
 
 		case OpProfileEnd:
 			code("OpProfileEnd")
+		
+		case OpSaveCommon:
+			commonExpr("OpSaveCommon")
+
+		case OpLoadCommon:
+			commonExpr("OpLoadCommon")
 
 		case OpBegin:
 			code("OpBegin")

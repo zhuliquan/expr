@@ -31,6 +31,7 @@ const (
 	OpJumpIfFalse
 	OpJumpIfNil
 	OpJumpIfNotNil
+	OpJumpIfSaveCommon // if common value save skip common calculate
 	OpJumpIfEnd
 	OpJumpBackward
 	OpIn
@@ -83,6 +84,8 @@ const (
 	OpSort
 	OpProfileStart
 	OpProfileEnd
+	OpSaveCommon // save common sub-expr value
+	OpLoadCommon // load common sub-expr value
 	OpBegin
 	OpEnd // This opcode must be at the end of this list.
 )

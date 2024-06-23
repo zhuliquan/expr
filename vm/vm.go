@@ -28,8 +28,8 @@ func Run(program *Program, env any) (any, error) {
 func Debug() *VM {
 	vm := &VM{
 		debug: true,
-		step:  make(chan struct{}, 0),
-		curr:  make(chan int, 0),
+		step:  make(chan struct{}),
+		curr:  make(chan int),
 	}
 	return vm
 }
@@ -75,7 +75,13 @@ func (vm *VM) Run(program *Program, env any) (_ any, err error) {
 	if len(vm.Variables) < program.variables {
 		vm.Variables = make([]any, program.variables)
 	}
-
+	var commonCache []any
+	if len(program.CommonExpr) > 0 {
+		commonCache = make([]any, len(program.CommonExpr))
+		for i := 0; i < len(commonCache); i++ {
+			commonCache[i] = _notSave
+		}
+	}
 	vm.memoryBudget = MemoryBudget
 	vm.memory = 0
 	vm.ip = 0
@@ -88,7 +94,6 @@ func (vm *VM) Run(program *Program, env any) (_ any, err error) {
 		op := program.Bytecode[vm.ip]
 		arg := program.Arguments[vm.ip]
 		vm.ip += 1
-
 		switch op {
 
 		case OpInvalid:
@@ -150,12 +155,12 @@ func (vm *VM) Run(program *Program, env any) (_ any, err error) {
 			vm.push(nil)
 
 		case OpNegate:
-			v := runtime.Negate(vm.pop())
-			vm.push(v)
+			a := vm.pop()
+			vm.push(runtime.Negate(a))
 
 		case OpNot:
-			v := vm.pop().(bool)
-			vm.push(!v)
+			a := vm.pop().(bool)
+			vm.push(!a)
 
 		case OpEqual:
 			b := vm.pop()
@@ -192,6 +197,11 @@ func (vm *VM) Run(program *Program, env any) (_ any, err error) {
 
 		case OpJumpIfNotNil:
 			if !runtime.IsNil(vm.current()) {
+				vm.ip += arg
+			}
+
+		case OpJumpIfSaveCommon:
+			if _, ok := vm.current().(*notSave); !ok {
 				vm.ip += arg
 			}
 
@@ -550,6 +560,12 @@ func (vm *VM) Run(program *Program, env any) (_ any, err error) {
 		case OpProfileEnd:
 			span := program.Constants[arg].(*Span)
 			span.Duration += time.Since(span.start).Nanoseconds()
+
+		case OpSaveCommon:
+			commonCache[arg] = vm.current()
+
+		case OpLoadCommon:
+			vm.push(commonCache[arg])
 
 		case OpBegin:
 			a := vm.pop()

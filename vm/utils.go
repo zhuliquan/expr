@@ -5,6 +5,12 @@ import (
 	"time"
 )
 
+
+// just for expr not save common result
+type notSave struct{}
+
+var _notSave = &notSave{}
+
 type (
 	Function     = func(params ...any) (any, error)
 	SafeFunction = func(params ...any) (any, uint, error)
