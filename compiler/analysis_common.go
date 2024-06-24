@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/expr-lang/expr/ast"
+	"github.com/expr-lang/expr/parser/operator"
 )
 
 func Identifier(node ast.Node) string {
@@ -17,21 +18,46 @@ func Identifier(node ast.Node) string {
 		case "+":
 			buf.WriteString("")
 		case "-":
-			buf.WriteString("-(")
+			buf.WriteString("-")
 		case "not", "!":
-			buf.WriteString("not (")
+			buf.WriteString("not ")
 		}
-		buf.WriteString(Identifier(n.Node))
-		buf.WriteString(")")
+		switch n.Node.(type) {
+		case *ast.BinaryNode, *ast.ConditionalNode:
+			buf.WriteByte('(')
+			buf.WriteString(Identifier(n.Node))
+			buf.WriteByte(')')
+		default:
+			buf.WriteString(Identifier(n.Node))
+		}
 		return buf.String()
 	case *ast.BinaryNode:
 		ls := Identifier(n.Left)
 		rs := Identifier(n.Right)
-		_, lw := n.Left.(*ast.BinaryNode)
-		_, rw := n.Right.(*ast.BinaryNode)
+		var lw, rw = false, false
+		switch lb := n.Left.(type) {
+		case *ast.BinaryNode:
+			if operator.Less(lb.Operator, n.Operator) ||
+				lb.Operator == "??" ||
+				(operator.IsBoolean(lb.Operator) && n.Operator != lb.Operator) {
+				lw = true
+			}
+		case *ast.ConditionalNode:
+			lw = true
+		}
+		switch rb := n.Right.(type) {
+		case *ast.BinaryNode:
+			if operator.Less(rb.Operator, n.Operator) ||
+				(operator.IsBoolean(rb.Operator) && n.Operator != rb.Operator) {
+				rw = true
+			}
+		case *ast.ConditionalNode:
+			rw = true
+		}
 		op := n.Operator
 		switch op {
-		case "==", "!=", "and", "or", "+", "*", "||", "&&", ">=", ">": // right / left can be swap
+		// right / left can be swap
+		case "==", "!=", "and", "or", "+", "*", "||", "&&", ">=", ">":
 			if op == ">=" || op == ">" || rs <= ls {
 				ls, rs = rs, ls
 				lw, rw = rw, lw
@@ -40,9 +66,11 @@ func Identifier(node ast.Node) string {
 				op = "and"
 			} else if op == "||" {
 				op = "or"
-			} else if op == ">=" { // a >= b is equal to b <= a
+			// a >= b is equal to b <= a
+			} else if op == ">=" {
 				op = "<="
-			} else if op == ">" { // a > b is equal to b < a
+			// a > b is equal to b < a
+			} else if op == ">" {
 				op = "<"
 			}
 		case "**", "^":
@@ -53,17 +81,17 @@ func Identifier(node ast.Node) string {
 
 		buf := strings.Builder{}
 		if lw {
-			buf.WriteString("(")
+			buf.WriteByte('(')
 			buf.WriteString(ls)
-			buf.WriteString(")")
+			buf.WriteByte(')')
 		} else {
 			buf.WriteString(ls)
 		}
 		buf.WriteString(" " + op + " ")
 		if rw {
-			buf.WriteString("(")
+			buf.WriteByte('(')
 			buf.WriteString(rs)
-			buf.WriteString(")")
+			buf.WriteByte(')')
 		} else {
 			buf.WriteString(rs)
 		}
@@ -83,7 +111,7 @@ func (c *compiler) Visit(node *ast.Node) {
 			c.countCommonExpr(*node)
 		}
 	case *ast.CallNode,
-		 *ast.BuiltinNode:
+		*ast.BuiltinNode:
 		c.countCommonExpr(*node)
 	default:
 		// do nothing
